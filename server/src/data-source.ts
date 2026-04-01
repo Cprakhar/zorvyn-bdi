@@ -6,8 +6,9 @@ import { User } from "./entity/User";
 const dbPath = process.env.DB_PATH ?? "finance.sqlite";
 
 export const AppDataSource = new DataSource({
-    type: "sqlite",
-    database: dbPath,
+    type: "sqljs",
+    location: dbPath,
+    autoSave: true,
     entities: [User, Transaction],
     synchronize: true,
     logging: false,
