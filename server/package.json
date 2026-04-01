@@ -30,7 +30,7 @@
     "jsonwebtoken": "^9.0.3",
     "reflect-metadata": "^0.2.2",
     "swagger-ui-express": "^5.0.1",
-    "typeorm": "^0.3.28",
+    "typeorm": "1.0.0-beta.1",
     "typescript": "^6.0.2"
   }
 }
