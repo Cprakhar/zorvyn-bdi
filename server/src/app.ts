@@ -1,12 +1,265 @@
 import express from "express";
 import type { DataSource } from "typeorm";
+import { TransactionType } from "./entity/Transaction";
+import { UserRole } from "./entity/User";
+import { authenticationMiddleware, requireRoles, type AuthenticatedRequest } from "./http/auth";
+import { badRequest, conflict, HttpError, notFound } from "./http/errors";
+import {
+    parseBoolean,
+    parseDate,
+    parseEmail,
+    parseName,
+    parseOptionalDate,
+    parseOptionalString,
+    parsePositiveInteger,
+    parseTransactionType,
+    parseUserRole,
+} from "./http/validation";
+import { TransactionRepo } from "./repo/TransactionRepo";
+import { UserRepo } from "./repo/UserRepo";
 
-export const createApp = (_dataSource: DataSource) => {
+export const createApp = (dataSource: DataSource) => {
     const app = express();
+    const userRepo = new UserRepo(dataSource);
+    const transactionRepo = new TransactionRepo(dataSource);
+
     app.use(express.json());
+    app.use(authenticationMiddleware(userRepo));
 
     app.get("/health", (_req, res) => {
         res.status(200).json({ ok: true });
+    });
+
+    app.get("/users", requireRoles(UserRole.ADMIN), async (_req, res, next) => {
+        try {
+            const users = await userRepo.list();
+            res.status(200).json(users);
+        } catch (error) {
+            next(error);
+        }
+    });
+
+    app.post("/users", requireRoles(UserRole.ADMIN), async (req, res, next) => {
+        try {
+            const email = parseEmail(req.body?.email);
+            const name = parseName(req.body?.name);
+            const role = parseUserRole(req.body?.role);
+            const isActive = parseBoolean(req.body?.isActive, true);
+
+            const existing = await userRepo.findByEmail(email);
+            if (existing) {
+                throw conflict("email already exists");
+            }
+
+            const user = await userRepo.create({ email, name, role, isActive });
+            res.status(201).json(user);
+        } catch (error) {
+            next(error);
+        }
+    });
+
+    app.patch("/users/:id", requireRoles(UserRole.ADMIN), async (req, res, next) => {
+        try {
+            const userId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+            const payload = req.body ?? {};
+            const update: {
+                email?: string;
+                name?: string;
+                role?: UserRole;
+                isActive?: boolean;
+            } = {};
+
+            if (payload.email !== undefined) {
+                update.email = parseEmail(payload.email);
+                const existing = await userRepo.findByEmail(update.email);
+                if (existing && existing.id !== userId) {
+                    throw conflict("email already exists");
+                }
+            }
+
+            if (payload.name !== undefined) {
+                update.name = parseName(payload.name);
+            }
+
+            if (payload.role !== undefined) {
+                update.role = parseUserRole(payload.role);
+            }
+
+            if (payload.isActive !== undefined) {
+                update.isActive = parseBoolean(payload.isActive, true);
+            }
+
+            if (Object.keys(update).length === 0) {
+                throw badRequest("No valid fields provided for update");
+            }
+
+            const user = await userRepo.update(userId, update);
+            if (!user) {
+                throw notFound("User not found");
+            }
+
+            res.status(200).json(user);
+        } catch (error) {
+            next(error);
+        }
+    });
+
+    app.get(
+        "/transactions",
+        requireRoles(UserRole.ANALYST, UserRole.ADMIN),
+        async (req, res, next) => {
+            try {
+                const typeParam = req.query.type;
+                const categoryParam = req.query.category;
+                const startDateParam = req.query.startDate;
+                const endDateParam = req.query.endDate;
+
+                const transactions = await transactionRepo.list({
+                    type:
+                        typeof typeParam === "string"
+                            ? parseTransactionType(typeParam)
+                            : undefined,
+                    category: typeof categoryParam === "string" ? categoryParam : undefined,
+                    startDate:
+                        typeof startDateParam === "string"
+                            ? parseOptionalDate(startDateParam, "startDate")
+                            : undefined,
+                    endDate:
+                        typeof endDateParam === "string"
+                            ? parseOptionalDate(endDateParam, "endDate")
+                            : undefined,
+                });
+
+                res.status(200).json(transactions);
+            } catch (error) {
+                next(error);
+            }
+        }
+    );
+
+    app.post("/transactions", requireRoles(UserRole.ADMIN), async (req: AuthenticatedRequest, res, next) => {
+        try {
+            const amount = parsePositiveInteger(req.body?.amount, "amount");
+            const type = parseTransactionType(req.body?.type);
+            const category = parseName(req.body?.category);
+            const transactionDate = parseDate(req.body?.transactionDate, "transactionDate");
+            const description = parseOptionalString(req.body?.description, "description");
+
+            if (!req.actor) {
+                throw badRequest("Authenticated actor missing");
+            }
+
+            const transaction = await transactionRepo.create({
+                amount,
+                type,
+                category,
+                transactionDate,
+                description,
+                createdById: req.actor.id,
+            });
+
+            res.status(201).json(transaction);
+        } catch (error) {
+            next(error);
+        }
+    });
+
+    app.patch(
+        "/transactions/:id",
+        requireRoles(UserRole.ADMIN),
+        async (req: AuthenticatedRequest, res, next) => {
+            try {
+                const transactionId = Array.isArray(req.params.id)
+                    ? req.params.id[0]
+                    : req.params.id;
+                const payload = req.body ?? {};
+                const update: {
+                    amount?: number;
+                    type?: TransactionType;
+                    category?: string;
+                    transactionDate?: Date;
+                    description?: string | null;
+                } = {};
+
+                if (payload.amount !== undefined) {
+                    update.amount = parsePositiveInteger(payload.amount, "amount");
+                }
+
+                if (payload.type !== undefined) {
+                    update.type = parseTransactionType(payload.type);
+                }
+
+                if (payload.category !== undefined) {
+                    update.category = parseName(payload.category);
+                }
+
+                if (payload.transactionDate !== undefined) {
+                    update.transactionDate = parseDate(payload.transactionDate, "transactionDate");
+                }
+
+                if (payload.description !== undefined) {
+                    update.description = parseOptionalString(payload.description, "description");
+                }
+
+                if (Object.keys(update).length === 0) {
+                    throw badRequest("No valid fields provided for update");
+                }
+
+                const transaction = await transactionRepo.update(transactionId, update);
+                if (!transaction) {
+                    throw notFound("Transaction not found");
+                }
+
+                res.status(200).json(transaction);
+            } catch (error) {
+                next(error);
+            }
+        }
+    );
+
+    app.delete(
+        "/transactions/:id",
+        requireRoles(UserRole.ADMIN),
+        async (req, res, next) => {
+            try {
+                const transactionId = Array.isArray(req.params.id)
+                    ? req.params.id[0]
+                    : req.params.id;
+                const deleted = await transactionRepo.remove(transactionId);
+                if (!deleted) {
+                    throw notFound("Transaction not found");
+                }
+
+                res.status(204).send();
+            } catch (error) {
+                next(error);
+            }
+        }
+    );
+
+    app.get(
+        "/dashboard/summary",
+        requireRoles(UserRole.VIEWER, UserRole.ANALYST, UserRole.ADMIN),
+        async (_req, res, next) => {
+            try {
+                const summary = await transactionRepo.summarize();
+                res.status(200).json(summary);
+            } catch (error) {
+                next(error);
+            }
+        }
+    );
+
+    app.use((error: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+        if (error instanceof HttpError) {
+            return res.status(error.statusCode).json({
+                error: error.message,
+                details: error.details,
+            });
+        }
+
+        console.error("Unhandled error", error);
+        return res.status(500).json({ error: "Internal server error" });
     });
 
     return app;
