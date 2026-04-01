@@ -32,6 +32,7 @@ export const createApp = (dataSource: DataSource) => {
     const app = express();
     const userRepo = new UserRepo(dataSource);
     const transactionRepo = new TransactionRepo(dataSource);
+    const allowedOrigin = process.env.CORS_ORIGIN ?? "http://localhost:3001";
     const globalRateLimit = rateLimit({
         windowMs: 15 * 60 * 1000,
         max: 300,
@@ -52,6 +53,23 @@ export const createApp = (dataSource: DataSource) => {
     });
 
     app.use(express.json());
+    app.use((req, res, next) => {
+        const origin = req.header("origin");
+
+        if (origin && (allowedOrigin === "*" || origin === allowedOrigin)) {
+            res.header("Access-Control-Allow-Origin", origin);
+            res.header("Vary", "Origin");
+        }
+
+        res.header("Access-Control-Allow-Methods", "GET,POST,PATCH,DELETE,OPTIONS");
+        res.header("Access-Control-Allow-Headers", "Content-Type,Authorization,X-User-Id,X-User-Email");
+
+        if (req.method === "OPTIONS") {
+            return res.status(204).send();
+        }
+
+        return next();
+    });
     app.use(globalRateLimit);
 
     app.get("/docs-json", (_req, res) => {
