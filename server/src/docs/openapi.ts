@@ -15,6 +15,18 @@ export const openApiDocument = {
             },
         },
         schemas: {
+            User: {
+                type: "object",
+                properties: {
+                    id: { type: "string" },
+                    name: { type: "string" },
+                    email: { type: "string", format: "email" },
+                    role: { type: "string", enum: ["viewer", "analyst", "admin"] },
+                    isActive: { type: "boolean" },
+                    createdAt: { type: "string", format: "date-time" },
+                    updatedAt: { type: "string", format: "date-time" },
+                },
+            },
             AuthTokenResponse: {
                 type: "object",
                 properties: {
@@ -34,6 +46,35 @@ export const openApiDocument = {
             TransactionInput: {
                 type: "object",
                 required: ["amount", "type", "category", "transactionDate"],
+                properties: {
+                    amount: { type: "integer", minimum: 1 },
+                    type: { type: "string", enum: ["income", "expense"] },
+                    category: { type: "string" },
+                    transactionDate: { type: "string", format: "date-time" },
+                    description: { type: "string", nullable: true },
+                },
+            },
+            UserCreateInput: {
+                type: "object",
+                required: ["name", "email", "role"],
+                properties: {
+                    name: { type: "string" },
+                    email: { type: "string", format: "email" },
+                    role: { type: "string", enum: ["viewer", "analyst", "admin"] },
+                    isActive: { type: "boolean" },
+                },
+            },
+            UserUpdateInput: {
+                type: "object",
+                properties: {
+                    name: { type: "string" },
+                    email: { type: "string", format: "email" },
+                    role: { type: "string", enum: ["viewer", "analyst", "admin"] },
+                    isActive: { type: "boolean" },
+                },
+            },
+            TransactionUpdateInput: {
+                type: "object",
                 properties: {
                     amount: { type: "integer", minimum: 1 },
                     type: { type: "string", enum: ["income", "expense"] },
@@ -63,6 +104,26 @@ export const openApiDocument = {
         },
     },
     paths: {
+        "/health": {
+            get: {
+                summary: "Health check",
+                responses: {
+                    "200": {
+                        description: "Service is healthy",
+                        content: {
+                            "application/json": {
+                                schema: {
+                                    type: "object",
+                                    properties: {
+                                        ok: { type: "boolean" },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        },
         "/auth/token": {
             post: {
                 summary: "Issue JWT token by user email",
@@ -86,6 +147,72 @@ export const openApiDocument = {
                         content: {
                             "application/json": {
                                 schema: { $ref: "#/components/schemas/AuthTokenResponse" },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+        "/users": {
+            get: {
+                security: [{ bearerAuth: [] }],
+                summary: "List users (admin only)",
+                responses: {
+                    "200": {
+                        description: "User list",
+                        content: {
+                            "application/json": {
+                                schema: {
+                                    type: "array",
+                                    items: { $ref: "#/components/schemas/User" },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+            post: {
+                security: [{ bearerAuth: [] }],
+                summary: "Create user (admin only)",
+                requestBody: {
+                    required: true,
+                    content: {
+                        "application/json": {
+                            schema: { $ref: "#/components/schemas/UserCreateInput" },
+                        },
+                    },
+                },
+                responses: {
+                    "201": {
+                        description: "User created",
+                        content: {
+                            "application/json": {
+                                schema: { $ref: "#/components/schemas/User" },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+        "/users/{id}": {
+            patch: {
+                security: [{ bearerAuth: [] }],
+                summary: "Update user (admin only)",
+                parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+                requestBody: {
+                    required: true,
+                    content: {
+                        "application/json": {
+                            schema: { $ref: "#/components/schemas/UserUpdateInput" },
+                        },
+                    },
+                },
+                responses: {
+                    "200": {
+                        description: "User updated",
+                        content: {
+                            "application/json": {
+                                schema: { $ref: "#/components/schemas/User" },
                             },
                         },
                     },
@@ -129,6 +256,32 @@ export const openApiDocument = {
                 },
                 responses: {
                     "201": { description: "Created" },
+                },
+            },
+        },
+        "/transactions/{id}": {
+            patch: {
+                security: [{ bearerAuth: [] }],
+                summary: "Update transaction (admin only)",
+                parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+                requestBody: {
+                    required: true,
+                    content: {
+                        "application/json": {
+                            schema: { $ref: "#/components/schemas/TransactionUpdateInput" },
+                        },
+                    },
+                },
+                responses: {
+                    "200": { description: "Transaction updated" },
+                },
+            },
+            delete: {
+                security: [{ bearerAuth: [] }],
+                summary: "Delete transaction (admin only)",
+                parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+                responses: {
+                    "204": { description: "Transaction deleted" },
                 },
             },
         },
