@@ -3,18 +3,22 @@ import type { TransactionType } from "@/lib/types";
 interface FiltersPanelProps {
   typeFilter: "all" | TransactionType;
   categoryFilter: string;
+  searchFilter: string;
   pageSize: number;
   onTypeFilterChange: (value: "all" | TransactionType) => void;
   onCategoryFilterChange: (value: string) => void;
+  onSearchFilterChange: (value: string) => void;
   onPageSizeChange: (value: number) => void;
 }
 
 export function FiltersPanel({
   typeFilter,
   categoryFilter,
+  searchFilter,
   pageSize,
   onTypeFilterChange,
   onCategoryFilterChange,
+  onSearchFilterChange,
   onPageSizeChange,
 }: Readonly<FiltersPanelProps>) {
   return (
@@ -32,6 +36,15 @@ export function FiltersPanel({
             <option value="income">Income</option>
             <option value="expense">Expense</option>
           </select>
+        </div>
+        <div className="field">
+          <label htmlFor="search">Search</label>
+          <input
+            id="search"
+            value={searchFilter}
+            onChange={(event) => onSearchFilterChange(event.target.value)}
+            placeholder="description or category"
+          />
         </div>
         <div className="field">
           <label htmlFor="category">Category</label>

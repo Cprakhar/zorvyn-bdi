@@ -40,6 +40,7 @@ export default function Home() {
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [transactions, setTransactions] = useState<PaginatedTransactions | null>(null);
   const [typeFilter, setTypeFilter] = useState<"all" | TransactionType>("all");
+  const [searchFilter, setSearchFilter] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -75,6 +76,7 @@ export default function Home() {
         getSummary(auth.accessToken),
         getTransactions(auth.accessToken, {
           type: typeFilter === "all" ? undefined : typeFilter,
+          search: searchFilter || undefined,
           category: categoryFilter || undefined,
           page,
           pageSize,
@@ -92,7 +94,7 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
-  }, [auth?.accessToken, categoryFilter, page, pageSize, typeFilter]);
+  }, [auth?.accessToken, categoryFilter, page, pageSize, searchFilter, typeFilter]);
 
   useEffect(() => {
     void loadData();
@@ -177,9 +179,14 @@ export default function Home() {
           <FiltersPanel
             typeFilter={typeFilter}
             categoryFilter={categoryFilter}
+            searchFilter={searchFilter}
             pageSize={pageSize}
             onTypeFilterChange={(value) => {
               setTypeFilter(value);
+              setPage(1);
+            }}
+            onSearchFilterChange={(value) => {
+              setSearchFilter(value);
               setPage(1);
             }}
             onCategoryFilterChange={(value) => {

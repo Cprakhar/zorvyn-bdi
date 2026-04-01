@@ -28,6 +28,10 @@ const buildQuery = (filters: TransactionFilters): string => {
     params.set("category", filters.category);
   }
 
+  if (filters.search) {
+    params.set("search", filters.search);
+  }
+
   if (filters.startDate) {
     params.set("startDate", filters.startDate);
   }

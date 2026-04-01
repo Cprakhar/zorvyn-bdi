@@ -45,6 +45,7 @@ export interface PaginatedTransactions {
 export interface TransactionFilters {
   type?: TransactionType;
   category?: string;
+  search?: string;
   startDate?: string;
   endDate?: string;
   page?: number;
