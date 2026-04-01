@@ -2,6 +2,12 @@
 
 Full-stack assessment project for finance data processing and access control.
 
+Live deployments:
+
+- Web (Vercel): https://zorvyn-bdi.vercel.app/
+- Server (Render): https://zorvyn-bdi.onrender.com
+  - Note: backend instance may be asleep; trigger it manually first by opening the URL.
+
 This repository includes:
 
 - Backend API with role-based access control, transaction management, dashboard summaries, token auth, pagination, search, rate limiting, and API docs.
@@ -59,6 +65,10 @@ Useful endpoints:
 - GET /docs
 - GET /docs-json
 
+Production base URL:
+
+- https://zorvyn-bdi.onrender.com
+
 ### 2) Frontend
 
 From the web directory:
@@ -75,6 +85,10 @@ NEXT_PUBLIC_API_BASE_URL=http://localhost:3000
 ```
 
 Open the frontend URL printed by Next.js (usually http://localhost:3001).
+
+Production URL:
+
+- https://zorvyn-bdi.vercel.app/
 
 ## Scripts
 
