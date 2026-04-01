@@ -5,7 +5,7 @@ export const openApiDocument = {
         version: "1.0.0",
         description: "Role-based finance records API with dashboard summaries.",
     },
-    servers: [{ url: "http://localhost:3000" }],
+    servers: [{ url: process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3000" }],
     components: {
         securitySchemes: {
             bearerAuth: {
