@@ -71,6 +71,10 @@ export default function Home() {
   const [users, setUsers] = useState<User[]>([]);
   const [newUser, setNewUser] = useState<CreateUserInput>(defaultNewUser);
 
+  const role = auth?.user.role;
+  const canReadTransactions = role === "analyst" || role === "admin";
+  const canWrite = role === "admin";
+
   useEffect(() => {
     const saved = localStorage.getItem(dashboardStateKey);
     if (saved) {
@@ -94,21 +98,23 @@ export default function Home() {
     setLoading(true);
     setError(null);
     try {
-      const [summaryData, transactionData] = await Promise.all([
-        getSummary(auth.accessToken),
-        getTransactions(auth.accessToken, {
+      const summaryData = await getSummary(auth.accessToken);
+      setSummary(summaryData);
+
+      if (canReadTransactions) {
+        const transactionData = await getTransactions(auth.accessToken, {
           type: typeFilter === "all" ? undefined : typeFilter,
           search: searchFilter || undefined,
           category: categoryFilter || undefined,
           page,
           pageSize,
-        }),
-      ]);
+        });
+        setTransactions(transactionData);
+      } else {
+        setTransactions(null);
+      }
 
-      setSummary(summaryData);
-      setTransactions(transactionData);
-
-      if (auth.user.role === "admin") {
+      if (canWrite) {
         const usersData = await getUsers(auth.accessToken);
         setUsers(usersData);
       } else {
@@ -123,7 +129,7 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
-  }, [auth?.accessToken, auth?.user.role, categoryFilter, page, pageSize, searchFilter, typeFilter]);
+  }, [auth?.accessToken, canReadTransactions, canWrite, categoryFilter, page, pageSize, searchFilter, typeFilter]);
 
   useEffect(() => {
     void loadData();
@@ -324,8 +330,6 @@ export default function Home() {
     }
   };
 
-  const canWrite = auth?.user.role === "admin";
-
   return (
     <main className="page-shell">
       <Header isAuthenticated={Boolean(auth)} onSignOut={handleSignOut} />
@@ -343,28 +347,37 @@ export default function Home() {
             }}
           />
 
-          <FiltersPanel
-            typeFilter={typeFilter}
-            categoryFilter={categoryFilter}
-            searchFilter={searchFilter}
-            pageSize={pageSize}
-            onTypeFilterChange={(value) => {
-              setTypeFilter(value);
-              setPage(1);
-            }}
-            onSearchFilterChange={(value) => {
-              setSearchFilter(value);
-              setPage(1);
-            }}
-            onCategoryFilterChange={(value) => {
-              setCategoryFilter(value);
-              setPage(1);
-            }}
-            onPageSizeChange={(value) => {
-              setPageSize(value);
-              setPage(1);
-            }}
-          />
+          {canReadTransactions ? (
+            <FiltersPanel
+              typeFilter={typeFilter}
+              categoryFilter={categoryFilter}
+              searchFilter={searchFilter}
+              pageSize={pageSize}
+              onTypeFilterChange={(value) => {
+                setTypeFilter(value);
+                setPage(1);
+              }}
+              onSearchFilterChange={(value) => {
+                setSearchFilter(value);
+                setPage(1);
+              }}
+              onCategoryFilterChange={(value) => {
+                setCategoryFilter(value);
+                setPage(1);
+              }}
+              onPageSizeChange={(value) => {
+                setPageSize(value);
+                setPage(1);
+              }}
+            />
+          ) : (
+            <article className="panel">
+              <h3>Access Level</h3>
+              <p style={{ margin: 0 }}>
+                Viewer mode: summary analytics only. Transaction records and management tools are hidden.
+              </p>
+            </article>
+          )}
 
           {canWrite ? (
             <>
@@ -413,25 +426,27 @@ export default function Home() {
         <div className="stack">
           <Notifications error={error} okMessage={okMessage} />
 
-          <TransactionsTable
-            transactions={transactions}
-            canManage={canWrite}
-            deletingId={deletingTransactionId}
-            onEdit={(transactionId) => {
-              handleStartEditTransaction(transactionId);
-            }}
-            onDelete={(transactionId) => {
-              void handleDeleteTransaction(transactionId);
-            }}
-            onPreviousPage={() => setPage((prev) => Math.max(1, prev - 1))}
-            onNextPage={() =>
-              setPage((prev) =>
-                transactions
-                  ? Math.min(transactions.pagination.totalPages, prev + 1)
-                  : prev
-              )
-            }
-          />
+          {canReadTransactions ? (
+            <TransactionsTable
+              transactions={transactions}
+              canManage={canWrite}
+              deletingId={deletingTransactionId}
+              onEdit={(transactionId) => {
+                handleStartEditTransaction(transactionId);
+              }}
+              onDelete={(transactionId) => {
+                void handleDeleteTransaction(transactionId);
+              }}
+              onPreviousPage={() => setPage((prev) => Math.max(1, prev - 1))}
+              onNextPage={() =>
+                setPage((prev) =>
+                  transactions
+                    ? Math.min(transactions.pagination.totalPages, prev + 1)
+                    : prev
+                )
+              }
+            />
+          ) : null}
 
           <TrendTable summary={summary} />
         </div>
