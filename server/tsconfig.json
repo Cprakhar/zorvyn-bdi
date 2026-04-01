@@ -1,0 +1,15 @@
+{
+    "compilerOptions": {
+        "target": "es6",
+        "module": "nodenext",
+        "moduleResolution": "nodenext",
+        "emitDecoratorMetadata": true,
+        "noUnusedLocals": true,
+        "useUnknownInCatchVariables": true,
+        "noUnusedParameters": true,
+        "experimentalDecorators": true,
+        "types": ["vitest/globals"]
+    },
+    "include": ["src"],
+    "exclude": ["node_modules", "dist", "build", "test"]
+}
