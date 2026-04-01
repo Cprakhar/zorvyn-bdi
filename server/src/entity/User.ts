@@ -1,4 +1,4 @@
-import { BeforeInsert, Column, CreateDateColumn, Entity, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
+import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 
 export enum UserRole {
     VIEWER = "viewer",
@@ -10,28 +10,26 @@ export enum UserRole {
 @Entity()
 export class User {
     @PrimaryGeneratedColumn("uuid")
-    id: string;
+    id!: string;
 
-    @Column({type: "enum", enum: UserRole, default: UserRole.VIEWER})
-    Role: UserRole;
+    @Column({ type: "simple-enum", enum: UserRole, default: UserRole.VIEWER })
+    role!: UserRole;
 
-    @Column({type: "varchar", length: 255, unique: true})
-    email: string
+    @Column({ type: "varchar", length: 255 })
+    name!: string;
 
-    @Column({type: "varchar", length: 255})
-    password: string
+    @Column({ type: "varchar", length: 255, unique: true })
+    email!: string;
+
+    @Column({ type: "varchar", length: 255, nullable: true })
+    passwordHash!: string | null;
 
     @CreateDateColumn()
-    createdAt: Date;
+    createdAt!: Date;
 
     @UpdateDateColumn()
-    updatedAt: Date;
+    updatedAt!: Date;
 
-    @Column({type: "boolean", default: true})
-    isActive: boolean;
-
-    @BeforeInsert()
-    async hashPassword() {
-        // todo: implement password hashing
-    }
+    @Column({ type: "boolean", default: true })
+    isActive!: boolean;
 }
