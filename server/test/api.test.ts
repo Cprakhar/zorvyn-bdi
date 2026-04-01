@@ -59,6 +59,24 @@ beforeEach(async () => {
 });
 
 describe("API RBAC and finance behavior", () => {
+    it("issues token and allows bearer-authenticated request", async () => {
+        const app = createApp(dataSource);
+
+        const tokenResponse = await request(app)
+            .post("/auth/token")
+            .send({ email: "analyst@test.local" });
+
+        expect(tokenResponse.status).toBe(200);
+        expect(typeof tokenResponse.body.accessToken).toBe("string");
+
+        const listResponse = await request(app)
+            .get("/transactions")
+            .set("Authorization", `Bearer ${tokenResponse.body.accessToken}`);
+
+        expect(listResponse.status).toBe(200);
+        expect(Array.isArray(listResponse.body.items)).toBe(true);
+    });
+
     it("blocks viewer from reading transactions", async () => {
         const app = createApp(dataSource);
 
@@ -77,6 +95,7 @@ describe("API RBAC and finance behavior", () => {
             .set("x-user-id", analystId);
 
         expect(listResponse.status).toBe(200);
+        expect(Array.isArray(listResponse.body.items)).toBe(true);
 
         const createResponse = await request(app)
             .post("/transactions")
@@ -153,11 +172,21 @@ describe("API RBAC and finance behavior", () => {
             });
 
         const filtered = await request(app)
-            .get("/transactions?type=expense&category=Food")
+            .get("/transactions?type=expense&category=Food&page=1&pageSize=5")
             .set("x-user-id", analystId);
 
         expect(filtered.status).toBe(200);
-        expect(filtered.body).toHaveLength(1);
-        expect(filtered.body[0].category).toBe("Food");
+        expect(filtered.body.items).toHaveLength(1);
+        expect(filtered.body.items[0].category).toBe("Food");
+        expect(filtered.body.pagination.page).toBe(1);
+        expect(filtered.body.pagination.pageSize).toBe(5);
+    });
+
+    it("serves api documentation", async () => {
+        const app = createApp(dataSource);
+        const docsResponse = await request(app).get("/docs-json");
+
+        expect(docsResponse.status).toBe(200);
+        expect(docsResponse.body.openapi).toBe("3.2.0");
     });
 });

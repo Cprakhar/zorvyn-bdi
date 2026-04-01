@@ -1,8 +1,17 @@
 import express from "express";
+import rateLimit from "express-rate-limit";
+import swaggerUi from "swagger-ui-express";
 import type { DataSource } from "typeorm";
+import { openApiDocument } from "./docs/openapi";
 import { TransactionType } from "./entity/Transaction";
 import { UserRole } from "./entity/User";
-import { authenticationMiddleware, requireRoles, type AuthenticatedRequest } from "./http/auth";
+import {
+    authenticationMiddleware,
+    issueAccessToken,
+    requireRoles,
+    TOKEN_EXPIRES_IN,
+    type AuthenticatedRequest,
+} from "./http/auth";
 import { badRequest, conflict, HttpError, notFound } from "./http/errors";
 import {
     parseBoolean,
@@ -11,6 +20,7 @@ import {
     parseName,
     parseOptionalDate,
     parseOptionalString,
+    parsePositiveIntFromQuery,
     parsePositiveInteger,
     parseTransactionType,
     parseUserRole,
@@ -22,8 +32,60 @@ export const createApp = (dataSource: DataSource) => {
     const app = express();
     const userRepo = new UserRepo(dataSource);
     const transactionRepo = new TransactionRepo(dataSource);
+    const globalRateLimit = rateLimit({
+        windowMs: 15 * 60 * 1000,
+        max: 300,
+        standardHeaders: true,
+        legacyHeaders: false,
+    });
+    const authRateLimit = rateLimit({
+        windowMs: 15 * 60 * 1000,
+        max: 30,
+        standardHeaders: true,
+        legacyHeaders: false,
+    });
+    const writeRateLimit = rateLimit({
+        windowMs: 15 * 60 * 1000,
+        max: 100,
+        standardHeaders: true,
+        legacyHeaders: false,
+    });
 
     app.use(express.json());
+    app.use(globalRateLimit);
+
+    app.get("/docs-json", (_req, res) => {
+        res.status(200).json(openApiDocument);
+    });
+    app.use("/docs", swaggerUi.serve, swaggerUi.setup(openApiDocument));
+
+    app.post("/auth/token", authRateLimit, async (req, res, next) => {
+        try {
+            const email = parseEmail(req.body?.email);
+            const user = await userRepo.findByEmail(email);
+            if (!user) {
+                throw notFound("User not found");
+            }
+            if (!user.isActive) {
+                throw badRequest("User is inactive");
+            }
+
+            const accessToken = issueAccessToken(user);
+            res.status(200).json({
+                accessToken,
+                tokenType: "Bearer",
+                expiresIn: TOKEN_EXPIRES_IN,
+                user: {
+                    id: user.id,
+                    email: user.email,
+                    role: user.role,
+                },
+            });
+        } catch (error) {
+            next(error);
+        }
+    });
+
     app.use(authenticationMiddleware(userRepo));
 
     app.get("/health", (_req, res) => {
@@ -39,7 +101,7 @@ export const createApp = (dataSource: DataSource) => {
         }
     });
 
-    app.post("/users", requireRoles(UserRole.ADMIN), async (req, res, next) => {
+    app.post("/users", writeRateLimit, requireRoles(UserRole.ADMIN), async (req, res, next) => {
         try {
             const email = parseEmail(req.body?.email);
             const name = parseName(req.body?.name);
@@ -57,8 +119,7 @@ export const createApp = (dataSource: DataSource) => {
             next(error);
         }
     });
-
-    app.patch("/users/:id", requireRoles(UserRole.ADMIN), async (req, res, next) => {
+    app.patch("/users/:id", writeRateLimit, requireRoles(UserRole.ADMIN), async (req, res, next) => {
         try {
             const userId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
             const payload = req.body ?? {};
@@ -113,6 +174,8 @@ export const createApp = (dataSource: DataSource) => {
                 const categoryParam = req.query.category;
                 const startDateParam = req.query.startDate;
                 const endDateParam = req.query.endDate;
+                const pageParam = req.query.page;
+                const pageSizeParam = req.query.pageSize;
 
                 const transactions = await transactionRepo.list({
                     type:
@@ -128,6 +191,14 @@ export const createApp = (dataSource: DataSource) => {
                         typeof endDateParam === "string"
                             ? parseOptionalDate(endDateParam, "endDate")
                             : undefined,
+                    page:
+                        typeof pageParam === "string"
+                            ? parsePositiveIntFromQuery(pageParam, "page", 1)
+                            : 1,
+                    pageSize:
+                        typeof pageSizeParam === "string"
+                            ? parsePositiveIntFromQuery(pageSizeParam, "pageSize", 20, 100)
+                            : 20,
                 });
 
                 res.status(200).json(transactions);
@@ -136,8 +207,7 @@ export const createApp = (dataSource: DataSource) => {
             }
         }
     );
-
-    app.post("/transactions", requireRoles(UserRole.ADMIN), async (req: AuthenticatedRequest, res, next) => {
+    app.post("/transactions", writeRateLimit, requireRoles(UserRole.ADMIN), async (req: AuthenticatedRequest, res, next) => {
         try {
             const amount = parsePositiveInteger(req.body?.amount, "amount");
             const type = parseTransactionType(req.body?.type);
@@ -166,6 +236,7 @@ export const createApp = (dataSource: DataSource) => {
 
     app.patch(
         "/transactions/:id",
+        writeRateLimit,
         requireRoles(UserRole.ADMIN),
         async (req: AuthenticatedRequest, res, next) => {
             try {
@@ -219,6 +290,7 @@ export const createApp = (dataSource: DataSource) => {
 
     app.delete(
         "/transactions/:id",
+        writeRateLimit,
         requireRoles(UserRole.ADMIN),
         async (req, res, next) => {
             try {

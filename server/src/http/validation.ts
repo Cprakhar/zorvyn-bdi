@@ -109,3 +109,29 @@ export const parseOptionalDate = (value: unknown, fieldName: string): Date | und
 
     return parseDate(value, fieldName);
 };
+
+export const parsePositiveIntFromQuery = (
+    value: unknown,
+    fieldName: string,
+    defaultValue: number,
+    max?: number
+): number => {
+    if (value === undefined) {
+        return defaultValue;
+    }
+
+    if (typeof value !== "string" || value.trim().length === 0) {
+        throw badRequest(`${fieldName} must be a positive integer`);
+    }
+
+    const parsed = Number(value);
+    if (!Number.isInteger(parsed) || parsed <= 0) {
+        throw badRequest(`${fieldName} must be a positive integer`);
+    }
+
+    if (max !== undefined && parsed > max) {
+        throw badRequest(`${fieldName} must be <= ${max}`);
+    }
+
+    return parsed;
+};

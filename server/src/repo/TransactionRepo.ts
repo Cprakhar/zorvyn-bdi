@@ -6,6 +6,18 @@ export interface TransactionFilters {
 	category?: string;
 	startDate?: Date;
 	endDate?: Date;
+	page: number;
+	pageSize: number;
+}
+
+export interface PaginatedResult<T> {
+	items: T[];
+	pagination: {
+		page: number;
+		pageSize: number;
+		totalItems: number;
+		totalPages: number;
+	};
 }
 
 export interface CreateTransactionInput {
@@ -54,7 +66,7 @@ export class TransactionRepo {
 		return this.repository.save(entity);
 	}
 
-	async list(filters: TransactionFilters): Promise<Transaction[]> {
+	async list(filters: TransactionFilters): Promise<PaginatedResult<Transaction>> {
 		const query = this.repository
 			.createQueryBuilder("transaction")
 			.orderBy("transaction.transactionDate", "DESC");
@@ -81,7 +93,19 @@ export class TransactionRepo {
 			});
 		}
 
-		return query.getMany();
+		const skip = (filters.page - 1) * filters.pageSize;
+		query.skip(skip).take(filters.pageSize);
+
+		const [items, totalItems] = await query.getManyAndCount();
+		return {
+			items,
+			pagination: {
+				page: filters.page,
+				pageSize: filters.pageSize,
+				totalItems,
+				totalPages: Math.max(1, Math.ceil(totalItems / filters.pageSize)),
+			},
+		};
 	}
 
 	findById(id: string): Promise<Transaction | null> {

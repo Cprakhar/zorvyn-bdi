@@ -36,7 +36,14 @@ You can override with environment variables:
 
 ## Authentication Model
 
-This project uses mock header-based authentication for local development:
+This project supports both token-based auth and mock header auth for local development.
+
+Token flow:
+
+- POST /auth/token with `{ "email": "user@example.com" }`
+- Use `Authorization: Bearer <accessToken>` on protected endpoints
+
+Header fallback (for quick local testing):
 
 - x-user-id: <user-id>
 - or x-user-email: <email>
@@ -83,6 +90,8 @@ User fields:
     - category
     - startDate (ISO string)
     - endDate (ISO string)
+    - page (default: 1)
+    - pageSize (default: 20, max: 100)
 - POST /transactions (admin)
 - PATCH /transactions/:id (admin)
 - DELETE /transactions/:id (admin)
@@ -108,6 +117,17 @@ Response includes:
 - recentActivity
 - monthlyTrends
 
+### API Documentation
+
+- GET /docs-json (OpenAPI document)
+- GET /docs (Swagger UI)
+
+### Rate Limiting
+
+- Global rate limit on all endpoints
+- Stricter limit on /auth/token
+- Write-operation limit on POST/PATCH/DELETE user and transaction routes
+
 ## Validation and Error Handling
 
 The API returns structured errors with suitable HTTP status codes:
@@ -127,13 +147,14 @@ pnpm test
 
 Current integration coverage includes:
 
+- Token issuance and bearer-authenticated access
 - Role-based restrictions
 - Transaction creation/read constraints per role
 - Dashboard summary aggregation
-- Transaction filtering
+- Transaction filtering and pagination
+- API docs endpoint availability
 
 ## Notes and Assumptions
 
-- Authentication is intentionally simplified for assessment.
-- Password and token-based auth are out of scope for this implementation.
+- Authentication is simplified and email-based for token issuance (no password flow).
 - Persistence uses SQL.js for easier local setup and test portability.
