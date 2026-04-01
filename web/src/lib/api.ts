@@ -1,9 +1,13 @@
 import type {
   AuthTokenResponse,
+  CreateUserInput,
   CreateTransactionInput,
   DashboardSummary,
   PaginatedTransactions,
   TransactionFilters,
+  UpdateTransactionInput,
+  UpdateUserInput,
+  User,
 } from "./types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3000";
@@ -101,6 +105,61 @@ export const createTransaction = (
 ): Promise<void> => {
   return request<void>("/transactions", {
     method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  });
+};
+
+export const updateTransaction = (
+  token: string,
+  transactionId: string,
+  payload: UpdateTransactionInput
+): Promise<void> => {
+  return request<void>(`/transactions/${transactionId}`, {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  });
+};
+
+export const deleteTransaction = (token: string, transactionId: string): Promise<void> => {
+  return request<void>(`/transactions/${transactionId}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+};
+
+export const getUsers = (token: string): Promise<User[]> => {
+  return request<User[]>("/users", {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+};
+
+export const createUser = (token: string, payload: CreateUserInput): Promise<User> => {
+  return request<User>("/users", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  });
+};
+
+export const updateUser = (
+  token: string,
+  userId: string,
+  payload: UpdateUserInput
+): Promise<User> => {
+  return request<User>(`/users/${userId}`, {
+    method: "PATCH",
     headers: {
       Authorization: `Bearer ${token}`,
     },

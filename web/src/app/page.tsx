@@ -3,25 +3,35 @@
 import { useCallback, useEffect, useState } from "react";
 import { AuthPanel } from "@/components/dashboard/AuthPanel";
 import { CreateTransactionPanel } from "@/components/dashboard/CreateTransactionPanel";
+import { EditTransactionPanel } from "@/components/dashboard/EditTransactionPanel";
 import { FiltersPanel } from "@/components/dashboard/FiltersPanel";
 import { Header } from "@/components/dashboard/Header";
 import { Notifications } from "@/components/dashboard/Notifications";
 import { SummaryCards } from "@/components/dashboard/SummaryCards";
 import { TransactionsTable } from "@/components/dashboard/TransactionsTable";
 import { TrendTable } from "@/components/dashboard/TrendTable";
+import { UserManagementPanel } from "@/components/dashboard/UserManagementPanel";
 import {
   ApiError,
+  createUser,
   createTransaction,
+  deleteTransaction,
+  getUsers,
   getSummary,
   getTransactions,
   issueToken,
+  updateTransaction,
+  updateUser,
 } from "../lib/api";
 import type {
   AuthTokenResponse,
+  CreateUserInput,
   CreateTransactionInput,
   DashboardSummary,
   PaginatedTransactions,
   TransactionType,
+  User,
+  UserRole,
 } from "../lib/types";
 
 const defaultNewTransaction: CreateTransactionInput = {
@@ -30,6 +40,13 @@ const defaultNewTransaction: CreateTransactionInput = {
   category: "",
   transactionDate: new Date().toISOString().slice(0, 10),
   description: "",
+};
+
+const defaultNewUser: CreateUserInput = {
+  name: "",
+  email: "",
+  role: "viewer",
+  isActive: true,
 };
 
 const dashboardStateKey = "fluxboard.auth";
@@ -48,6 +65,11 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [okMessage, setOkMessage] = useState<string | null>(null);
   const [newTransaction, setNewTransaction] = useState<CreateTransactionInput>(defaultNewTransaction);
+  const [editingTransactionId, setEditingTransactionId] = useState<string | null>(null);
+  const [editTransactionForm, setEditTransactionForm] = useState<CreateTransactionInput>(defaultNewTransaction);
+  const [deletingTransactionId, setDeletingTransactionId] = useState<string | null>(null);
+  const [users, setUsers] = useState<User[]>([]);
+  const [newUser, setNewUser] = useState<CreateUserInput>(defaultNewUser);
 
   useEffect(() => {
     const saved = localStorage.getItem(dashboardStateKey);
@@ -85,6 +107,13 @@ export default function Home() {
 
       setSummary(summaryData);
       setTransactions(transactionData);
+
+      if (auth.user.role === "admin") {
+        const usersData = await getUsers(auth.accessToken);
+        setUsers(usersData);
+      } else {
+        setUsers([]);
+      }
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message);
@@ -94,7 +123,7 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
-  }, [auth?.accessToken, categoryFilter, page, pageSize, searchFilter, typeFilter]);
+  }, [auth?.accessToken, auth?.user.role, categoryFilter, page, pageSize, searchFilter, typeFilter]);
 
   useEffect(() => {
     void loadData();
@@ -157,6 +186,144 @@ export default function Home() {
     }
   };
 
+  const handleStartEditTransaction = (transactionId: string) => {
+    const transaction = transactions?.items.find((item) => item.id === transactionId);
+    if (!transaction) {
+      return;
+    }
+
+    setEditingTransactionId(transaction.id);
+    setEditTransactionForm({
+      amount: transaction.amount,
+      type: transaction.type,
+      category: transaction.category,
+      transactionDate: new Date(transaction.transactionDate).toISOString().slice(0, 10),
+      description: transaction.description ?? "",
+    });
+  };
+
+  const handleUpdateTransaction = async () => {
+    if (!auth?.accessToken || !editingTransactionId) {
+      return;
+    }
+
+    setError(null);
+    setOkMessage(null);
+    try {
+      await updateTransaction(auth.accessToken, editingTransactionId, {
+        ...editTransactionForm,
+        transactionDate: new Date(editTransactionForm.transactionDate).toISOString(),
+      });
+
+      setOkMessage("Transaction updated successfully");
+      setEditingTransactionId(null);
+      setEditTransactionForm(defaultNewTransaction);
+      await loadData();
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setError(err.message);
+      } else {
+        setError("Failed to update transaction");
+      }
+    }
+  };
+
+  const handleDeleteTransaction = async (transactionId: string) => {
+    if (!auth?.accessToken) {
+      return;
+    }
+
+    if (!globalThis.confirm("Delete this transaction? This action cannot be undone.")) {
+      return;
+    }
+
+    setDeletingTransactionId(transactionId);
+    setError(null);
+    setOkMessage(null);
+
+    try {
+      await deleteTransaction(auth.accessToken, transactionId);
+      setOkMessage("Transaction deleted successfully");
+
+      if (editingTransactionId === transactionId) {
+        setEditingTransactionId(null);
+        setEditTransactionForm(defaultNewTransaction);
+      }
+
+      await loadData();
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setError(err.message);
+      } else {
+        setError("Failed to delete transaction");
+      }
+    } finally {
+      setDeletingTransactionId(null);
+    }
+  };
+
+  const handleCreateUser = async () => {
+    if (!auth?.accessToken || auth.user.role !== "admin") {
+      setError("Only admins can manage users");
+      return;
+    }
+
+    setError(null);
+    setOkMessage(null);
+    try {
+      await createUser(auth.accessToken, newUser);
+      setOkMessage("User created successfully");
+      setNewUser(defaultNewUser);
+      await loadData();
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setError(err.message);
+      } else {
+        setError("Failed to create user");
+      }
+    }
+  };
+
+  const handleUpdateUserRole = async (userId: string, role: UserRole) => {
+    if (!auth?.accessToken || auth.user.role !== "admin") {
+      return;
+    }
+
+    setError(null);
+    setOkMessage(null);
+    try {
+      await updateUser(auth.accessToken, userId, { role });
+      setOkMessage("User role updated");
+      await loadData();
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setError(err.message);
+      } else {
+        setError("Failed to update role");
+      }
+    }
+  };
+
+  const handleToggleUserStatus = async (userId: string, isActive: boolean) => {
+    if (!auth?.accessToken || auth.user.role !== "admin") {
+      return;
+    }
+
+    setError(null);
+    setOkMessage(null);
+    try {
+      await updateUser(auth.accessToken, userId, { isActive });
+      setOkMessage(`User ${isActive ? "activated" : "deactivated"}`);
+      await loadData();
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setError(err.message);
+      } else {
+        setError("Failed to update user status");
+      }
+    }
+  };
+
   const canWrite = auth?.user.role === "admin";
 
   return (
@@ -200,13 +367,46 @@ export default function Home() {
           />
 
           {canWrite ? (
-            <CreateTransactionPanel
-              form={newTransaction}
-              onChange={setNewTransaction}
-              onSubmit={() => {
-                void handleCreateTransaction();
-              }}
-            />
+            <>
+              <CreateTransactionPanel
+                form={newTransaction}
+                onChange={setNewTransaction}
+                onSubmit={() => {
+                  void handleCreateTransaction();
+                }}
+              />
+
+              {editingTransactionId ? (
+                <EditTransactionPanel
+                  form={editTransactionForm}
+                  loading={loading}
+                  onChange={setEditTransactionForm}
+                  onSubmit={() => {
+                    void handleUpdateTransaction();
+                  }}
+                  onCancel={() => {
+                    setEditingTransactionId(null);
+                    setEditTransactionForm(defaultNewTransaction);
+                  }}
+                />
+              ) : null}
+
+              <UserManagementPanel
+                users={users}
+                form={newUser}
+                loading={loading}
+                onFormChange={setNewUser}
+                onCreateUser={() => {
+                  void handleCreateUser();
+                }}
+                onUpdateUserRole={(userId, role) => {
+                  void handleUpdateUserRole(userId, role);
+                }}
+                onToggleUserStatus={(userId, nextStatus) => {
+                  void handleToggleUserStatus(userId, nextStatus);
+                }}
+              />
+            </>
           ) : null}
         </aside>
 
@@ -215,6 +415,14 @@ export default function Home() {
 
           <TransactionsTable
             transactions={transactions}
+            canManage={canWrite}
+            deletingId={deletingTransactionId}
+            onEdit={(transactionId) => {
+              handleStartEditTransaction(transactionId);
+            }}
+            onDelete={(transactionId) => {
+              void handleDeleteTransaction(transactionId);
+            }}
             onPreviousPage={() => setPage((prev) => Math.max(1, prev - 1))}
             onNextPage={() =>
               setPage((prev) =>

@@ -3,12 +3,20 @@ import { money } from "@/lib/format";
 
 interface TransactionsTableProps {
   transactions: PaginatedTransactions | null;
+  canManage: boolean;
+  deletingId: string | null;
+  onEdit: (transactionId: string) => void;
+  onDelete: (transactionId: string) => void;
   onPreviousPage: () => void;
   onNextPage: () => void;
 }
 
 export function TransactionsTable({
   transactions,
+  canManage,
+  deletingId,
+  onEdit,
+  onDelete,
   onPreviousPage,
   onNextPage,
 }: Readonly<TransactionsTableProps>) {
@@ -24,6 +32,7 @@ export function TransactionsTable({
               <th>Type</th>
               <th>Amount</th>
               <th>Notes</th>
+              {canManage ? <th>Actions</th> : null}
             </tr>
           </thead>
           <tbody>
@@ -36,11 +45,32 @@ export function TransactionsTable({
                   {money(item.amount)}
                 </td>
                 <td>{item.description || "-"}</td>
+                {canManage ? (
+                  <td>
+                    <div className="actions">
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        onClick={() => onEdit(item.id)}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        onClick={() => onDelete(item.id)}
+                        disabled={deletingId === item.id}
+                      >
+                        {deletingId === item.id ? "Deleting..." : "Delete"}
+                      </button>
+                    </div>
+                  </td>
+                ) : null}
               </tr>
             ))}
             {(transactions?.items.length ?? 0) === 0 ? (
               <tr>
-                <td colSpan={5}>No records found for current filters.</td>
+                <td colSpan={canManage ? 6 : 5}>No records found for current filters.</td>
               </tr>
             ) : null}
           </tbody>

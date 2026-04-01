@@ -13,6 +13,28 @@ export interface AuthTokenResponse {
   };
 }
 
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateUserInput {
+  name: string;
+  email: string;
+  role: UserRole;
+  isActive: boolean;
+}
+
+export interface UpdateUserInput {
+  role?: UserRole;
+  isActive?: boolean;
+}
+
 export interface DashboardSummary {
   totalIncome: number;
   totalExpense: number;
@@ -57,5 +79,13 @@ export interface CreateTransactionInput {
   type: TransactionType;
   category: string;
   transactionDate: string;
+  description?: string;
+}
+
+export interface UpdateTransactionInput {
+  amount?: number;
+  type?: TransactionType;
+  category?: string;
+  transactionDate?: string;
   description?: string;
 }
