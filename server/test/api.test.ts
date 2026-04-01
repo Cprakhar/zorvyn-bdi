@@ -182,6 +182,40 @@ describe("API RBAC and finance behavior", () => {
         expect(filtered.body.pagination.pageSize).toBe(5);
     });
 
+    it("filters transactions by search keyword", async () => {
+        const app = createApp(dataSource);
+
+        await request(app)
+            .post("/transactions")
+            .set("x-user-id", adminId)
+            .send({
+                amount: 1500,
+                type: TransactionType.EXPENSE,
+                category: "Transport",
+                description: "Airport shuttle",
+                transactionDate: "2026-02-03T00:00:00.000Z",
+            });
+
+        await request(app)
+            .post("/transactions")
+            .set("x-user-id", adminId)
+            .send({
+                amount: 3200,
+                type: TransactionType.INCOME,
+                category: "Consulting",
+                description: "Client retainer",
+                transactionDate: "2026-02-04T00:00:00.000Z",
+            });
+
+        const filtered = await request(app)
+            .get("/transactions?search=shuttle&page=1&pageSize=10")
+            .set("x-user-id", analystId);
+
+        expect(filtered.status).toBe(200);
+        expect(filtered.body.items).toHaveLength(1);
+        expect(filtered.body.items[0].category).toBe("Transport");
+    });
+
     it("serves api documentation", async () => {
         const app = createApp(dataSource);
         const docsResponse = await request(app).get("/docs-json");

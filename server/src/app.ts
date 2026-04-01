@@ -172,6 +172,7 @@ export const createApp = (dataSource: DataSource) => {
             try {
                 const typeParam = req.query.type;
                 const categoryParam = req.query.category;
+                const searchParam = req.query.search;
                 const startDateParam = req.query.startDate;
                 const endDateParam = req.query.endDate;
                 const pageParam = req.query.page;
@@ -183,6 +184,7 @@ export const createApp = (dataSource: DataSource) => {
                             ? parseTransactionType(typeParam)
                             : undefined,
                     category: typeof categoryParam === "string" ? categoryParam : undefined,
+                    search: typeof searchParam === "string" ? searchParam.trim() || undefined : undefined,
                     startDate:
                         typeof startDateParam === "string"
                             ? parseOptionalDate(startDateParam, "startDate")

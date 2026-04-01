@@ -4,6 +4,7 @@ import { Transaction, TransactionType } from "../entity/Transaction";
 export interface TransactionFilters {
 	type?: TransactionType;
 	category?: string;
+	search?: string;
 	startDate?: Date;
 	endDate?: Date;
 	page: number;
@@ -79,6 +80,13 @@ export class TransactionRepo {
 			query.andWhere("LOWER(transaction.category) = LOWER(:category)", {
 				category: filters.category,
 			});
+		}
+
+		if (filters.search) {
+			query.andWhere(
+				"(LOWER(transaction.category) LIKE LOWER(:search) OR LOWER(COALESCE(transaction.description, '')) LIKE LOWER(:search))",
+				{ search: `%${filters.search}%` }
+			);
 		}
 
 		if (filters.startDate) {

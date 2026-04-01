@@ -99,6 +99,7 @@ export const openApiDocument = {
                 parameters: [
                     { name: "type", in: "query", schema: { type: "string", enum: ["income", "expense"] } },
                     { name: "category", in: "query", schema: { type: "string" } },
+                    { name: "search", in: "query", schema: { type: "string" } },
                     { name: "startDate", in: "query", schema: { type: "string", format: "date-time" } },
                     { name: "endDate", in: "query", schema: { type: "string", format: "date-time" } },
                     { name: "page", in: "query", schema: { type: "integer", minimum: 1 } },
