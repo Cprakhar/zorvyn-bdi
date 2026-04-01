@@ -96,6 +96,27 @@ pnpm start
 pnpm lint
 ```
 
+## Containerized Local Setup
+
+Use Docker Compose to run backend and frontend together:
+
+```bash
+docker compose up --build
+```
+
+Services:
+
+- Backend API: http://localhost:3000
+- Frontend: http://localhost:3001
+
+Stop services:
+
+```bash
+docker compose down
+```
+
+Persisted backend data is stored in the Docker volume `server_data`.
+
 ## Test Status
 
 Backend integration tests cover RBAC, token auth, filtering, pagination, search, summary, and docs route behavior.
