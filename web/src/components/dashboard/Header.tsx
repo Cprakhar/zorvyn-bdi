@@ -5,7 +5,7 @@ interface HeaderProps {
   onSignOut: () => void;
 }
 
-export function Header({ isAuthenticated, onSignOut }: HeaderProps) {
+export function Header({ isAuthenticated, onSignOut }: Readonly<HeaderProps>) {
   return (
     <header className="hero">
       <div>

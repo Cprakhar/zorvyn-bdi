@@ -1,10 +1,10 @@
 import request from "supertest";
 import { DataSource } from "typeorm";
 import { beforeAll, beforeEach, afterAll, describe, expect, it } from "vitest";
-import { createApp } from "../src/app";
-import { Transaction, TransactionType } from "../src/entity/Transaction";
-import { User, UserRole } from "../src/entity/User";
-import { UserRepo } from "../src/repo/UserRepo";
+import { createApp } from "../../server/src/app";
+import { Transaction, TransactionType } from "../../server/src/entity/Transaction";
+import { User, UserRole } from "../../server/src/entity/User";
+import { UserRepo } from "../../server/src/repo/UserRepo";
 
 let dataSource: DataSource;
 let adminId = "";
