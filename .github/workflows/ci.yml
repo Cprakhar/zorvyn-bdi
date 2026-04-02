@@ -27,10 +27,9 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
-          cache-dependency-path: server/pnpm-lock.yaml
+          cache-dependency-path: pnpm-lock.yaml
 
-      - name: Install server dependencies
-        working-directory: server
+      - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
       - name: Build server
@@ -55,10 +54,9 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
-          cache-dependency-path: web/pnpm-lock.yaml
+          cache-dependency-path: pnpm-lock.yaml
 
-      - name: Install web dependencies
-        working-directory: web
+      - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
       - name: Lint web
